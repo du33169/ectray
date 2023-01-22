@@ -6,6 +6,15 @@ if(($arg1 -eq 'quiet')){# if not with debug than start a new process to hide win
 	exit
 }
 
+if (($MyInvocation.MyCommand.CommandType) -eq "ExternalScript"){ 
+	$ScriptPath = ( Split-Path -Parent -Path $MyInvocation.MyCommand.Definition )
+}else{ 
+	$ScriptPath = Split-Path -Parent -Path ([Environment]::GetCommandLineArgs()[0]) 
+	if (!$ScriptPath){ $ScriptPath = "." } 
+}
+
+Write-Host ($ScriptPath)
+
 Add-Type -AssemblyName System.Windows.Forms
 $title="Podman EasyConnect"
 $configFile="config.json"
@@ -69,7 +78,7 @@ $containerName="ec_container"
 
 	$tipLabel = New-Object System.Windows.Forms.Label
 	$tipLabel.Text = "Note: Change will take effect on next launch"
-	$tipLabel.Size=New-Object System.Drawing.Size(200,30)
+	$tipLabel.Size=New-Object System.Drawing.Size(230,30)
 	# Create OK and Cancel buttons
 	$okButton = New-Object System.Windows.Forms.Button
 	$okButton.Text = "OK"
@@ -146,7 +155,7 @@ function ec_start {
 		"-e EC_VER=7.6.3 -v ${configFile}:/root/.easyconn",`
 		"-e CLI_OPTS=`" -d rvpn.zju.edu.cn`"",`
 		"hagb/docker-easyconnect:cli" `
-		-RedirectStandardOutput $podoutFile -PassThru -WorkingDirectory $PsScriptRoot -WindowStyle Hidden
+		-RedirectStandardOutput $podoutFile -PassThru -WorkingDirectory $ScriptPath -WindowStyle Hidden
 	}catch {
 		# Write-Error $_
 		$msgResult=[System.Windows.Forms.MessageBox]::Show("Start podman failed.`n`n$_",$title,"OK","Error")
