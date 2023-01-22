@@ -63,11 +63,19 @@ $containerName="ec_container"
 	$sockPortLabel = New-Object System.Windows.Forms.Label
 	$sockPortLabel.Text = "SOCKS5 Port:"
 	$sockPortTextbox = New-Object System.Windows.Forms.TextBox
-
+	$sockPortTextbox.MaxLength = 4
+	$sockPortTextbox.Add_TextChanged({
+	if(-not ($sockPortTextbox.Text -match '^[0-9]{0,4}$')){
+		$sockPortTextbox.Text = $sockPortTextbox.Text -replace '[^0-9]',''
+	}})
 	$httpPortLabel = New-Object System.Windows.Forms.Label
 	$httpPortLabel.Text = "HTTP Port:"
 	$httpPortTextbox = New-Object System.Windows.Forms.TextBox
-
+	$httpPortTextbox.MaxLength = 4
+	$httpPortTextbox.Add_TextChanged({
+	if(-not ($httpPortTextbox.Text -match '^[0-9]{0,4}$')){
+		$httpPortTextbox.Text = $httpPortTextbox.Text -replace '[^0-9]',''
+	}})
 	$accountFileLabel = New-Object System.Windows.Forms.Label
 	$accountFileLabel.Text = "Account File:"
 	$accountFileTextbox = New-Object System.Windows.Forms.TextBox
