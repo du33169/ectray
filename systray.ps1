@@ -6,6 +6,7 @@ if(($arg1 -eq 'quiet')){# if not with debug than start a new process to hide win
 	exit
 }
 
+# get current path
 if (($MyInvocation.MyCommand.CommandType) -eq "ExternalScript"){ 
 	$ScriptPath = ( Split-Path -Parent -Path $MyInvocation.MyCommand.Definition )
 }else{ 
@@ -41,7 +42,27 @@ $containerName="ec_container"
 	$contextMenu.MenuItems.AddRange(@($enableItem,$settingItem,$exitItem))
 	$notifyIcon.ContextMenu = $contextMenu
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
+# check podman machine state & podman installation
+$machineState=(((podman machine info) -match "MachineState: (.*)") -split ":"|Select-Object -Index 1).trim()
+if($machineState -eq "Running"){
+	Write-Host "machine Running"
+}
+elseif($machineState -eq "Stopped"){
+	Write-Host "machine not running, starting..."
+	podman machine start
+	if($? -and ($LASTEXITCODE -eq 0)){
+		Write-Host "successfully started podman machine"
+		$notifyIcon.ShowBalloonTip(2000, $title, "Podman machine started", [System.Windows.Forms.ToolTipIcon]::Info)
+	}
+	else{
+		$msgResult=[System.Windows.Forms.MessageBox]::Show("Start podman machine failed.",$title,"OK","Error")
+		exit 1
+	}
+}
+else{
+	$msgResult=[System.Windows.Forms.MessageBox]::Show("Failed to get podman machine state.`nCheck your podman installation",$title,"OK","Error")
+	exit 1
+}
 #init setting form>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	#create Form
 	$form = New-Object System.Windows.Forms.Form
@@ -138,29 +159,32 @@ function edit_config($wait=$true){
 	# }
 }
 function read_config{
-	Write-Host "try read config"
+	Write-Host "read config"
 	while(-not (Test-Path $configFile)) {
 		edit_config
 	}
 	return Get-Content $configFile | ConvertFrom-Json
 }
 function ec_start {
-	Write-Host "try start ec"
+	Write-Host "start ec"
 	try{
 		$config=read_config
 
 		$SOCKS5_PORT=$config.sockPort
 		$HTTP_PORT=$config.httpPort
-		$configFile=$config.accountFile
+		$accountFile=$config.accountFile
 		$dnsServer=$config.dnsServer
 
 		$successPattern="login successfully"
 
+		if(-not (Test-Path $accountFile)){# account file not existed
+			
+		}
 		Clear-Content $podoutFile
 		$prcHandle = Start-Process -FilePath 'podman'	-ArgumentList "run",`
 		"--name $containerName --replace --rm --device /dev/net/tun --cap-add NET_ADMIN",`
 		"--dns $dnsServer -p ${SOCKS5_PORT}:1080 -p ${HTTP_PORT}:8888",`
-		"-e EC_VER=7.6.3 -v ${configFile}:/root/.easyconn",`
+		"-e EC_VER=7.6.3 -v ${accountFile}:/root/.easyconn",`
 		"-e CLI_OPTS=`" -d rvpn.zju.edu.cn`"",`
 		"hagb/docker-easyconnect:cli" `
 		-RedirectStandardOutput $podoutFile -PassThru -WorkingDirectory $ScriptPath -WindowStyle Hidden
@@ -207,10 +231,10 @@ function ec_start {
 }
 
 function ec_stop{
-	Write-Host "try stop ec"
+	Write-Host "stop ec"
 	# stop container
 	podman stop $containerName
-	if($LASTEXITCODE -eq 0){
+	if($? -and ($LASTEXITCODE -eq 0)){
 		$notifyIcon.ShowBalloonTip(5000, "Podman EasyConnect", "Stopped Successfully", [System.Windows.Forms.ToolTipIcon]::Info)
 		return $true
 	}
@@ -245,8 +269,20 @@ $settingItem.Add_Click({
 	edit_config($wait=$false)
 })
 $exitItem.Add_Click({
+	if($enableItem.Checked){
+		ec_stop
+	}
+	if($machineState -eq "Stopped"){# only stop the self-started machine (keep the machine state the same as before)
+		Write-Host "stopping podman machine"
+		podman machine stop 
+		if($LASTEXITCODE -eq 0){
+			$notifyIcon.ShowBalloonTip(2000, $title, "Podman machine stopped", [System.Windows.Forms.ToolTipIcon]::Info)
+		}else{
+			$msgResult=[System.Windows.Forms.MessageBox]::Show("Failed to stop podman machine.",$title,"OK","Error")
+		}
+	}
 	$notifyIcon.Visible = $false
 	[System.Windows.Forms.Application]::Exit()
 })
 # Run the application
-[System.Windows.Forms.Application]::Run()
+[System.Windows.Forms.Application]::Run() # blocking
