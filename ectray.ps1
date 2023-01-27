@@ -20,6 +20,7 @@ Add-Type -AssemblyName System.Windows.Forms
 $title="Podman EasyConnect"
 $configFile="config.json"
 $podoutFile="podout.txt"
+$poderrFile="poderr.txt"
 $containerName="ec_container"
 
 # init_notifyIcon >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -178,16 +179,19 @@ function ec_start {
 		$successPattern="login successfully"
 
 		if(-not (Test-Path $accountFile)){# account file not existed
-			
+			$msgResult=[System.Windows.Forms.MessageBox]::Show("Account File `"$accountFile`" not found.`nPlease run once manually with option `"-v ${accountFile}:/root/.easyconn`"",$title,"OK","Error")
+			return $false
 		}
-		Clear-Content $podoutFile
-		$prcHandle = Start-Process -FilePath 'podman'	-ArgumentList "run",`
-		"--name $containerName --replace --rm --device /dev/net/tun --cap-add NET_ADMIN",`
-		"--dns $dnsServer -p ${SOCKS5_PORT}:1080 -p ${HTTP_PORT}:8888",`
-		"-e EC_VER=7.6.3 -v ${accountFile}:/root/.easyconn",`
-		"-e CLI_OPTS=`" -d rvpn.zju.edu.cn`"",`
-		"hagb/docker-easyconnect:cli" `
-		-RedirectStandardOutput $podoutFile -PassThru -WorkingDirectory $ScriptPath -WindowStyle Hidden
+		else{
+			Clear-Content $podoutFile
+			Clear-Content $poderrFile
+			$prcHandle = Start-Process -FilePath 'podman'	-ArgumentList "run",`
+			"--name $containerName --replace --rm --device /dev/net/tun --cap-add NET_ADMIN",`
+			"--dns $dnsServer -p ${SOCKS5_PORT}:1080 -p ${HTTP_PORT}:8888",`
+			"-e EC_VER=7.6.3 -v ${accountFile}:/root/.easyconn",`
+			"hagb/docker-easyconnect:cli" `
+			-RedirectStandardOutput $podoutFile -RedirectStandardError $poderrFile -PassThru -WorkingDirectory $ScriptPath -WindowStyle Hidden
+		}
 	}catch {
 		# Write-Error $_
 		$msgResult=[System.Windows.Forms.MessageBox]::Show("Start podman failed.`n`n$_",$title,"OK","Error")
@@ -218,13 +222,14 @@ function ec_start {
 	}
 	else{
 		$fileContent=(Get-Content $podoutFile -Raw)
+		$errContent=(Get-Content $poderrFile -Raw)
 		if(-not $prcPid){
 			$msgResult=[System.Windows.Forms.MessageBox]::Show("Cannot start podman process",$title,"OK","Error")
 		}elseif (-not $prcHandle.hasExited) {
 			Stop-Process -Id $prcPid
-			$msgResult=[System.Windows.Forms.MessageBox]::Show("Easyconnect login failed.`nLog:`n$fileContent",$title,"OK","Error")
+			$msgResult=[System.Windows.Forms.MessageBox]::Show("Easyconnect login failed.`nLog:`n$errContent",$title,"OK","Error")
 		}else{
-			$msgResult=[System.Windows.Forms.MessageBox]::Show("Podman process aborted.`nLog:`n$fileContent",$title,"OK","Error")
+			$msgResult=[System.Windows.Forms.MessageBox]::Show("Podman process aborted.`nLog:`n$errContent",$title,"OK","Error")
 		}
 		return $false
 	}
