@@ -2,6 +2,9 @@
 
 name: Build & Release
 
+permissions:
+  contents: write # need for create release
+
 # Controls when the workflow will run
 on:
   # Triggers the workflow on push or pull request events but only for the "release" branch
@@ -15,7 +18,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
-  build:
+  build-release:
     # The type of runner that the job will run on
     runs-on: windows-latest
 
@@ -23,8 +26,15 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-          
+
+      - name: Setup PowerShell module cache
+        id: cacher
+        uses: actions/cache@v3
+        with:
+          path: "C:/Users/runneradmin/Documents/WindowsPowerShell/Modules"
+          key: ${{ runner.os }}-Powershell-Module-PS2EXE
       - name: Install  ps2exe
+        if: steps.cacher.outputs.cache-hit != 'true'
         run: |
           Set-PSRepository PSGallery -InstallationPolicy Trusted
           Install-Module ps2exe -Scope CurrentUser
