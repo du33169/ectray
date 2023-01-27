@@ -13,7 +13,7 @@ if(-not (Test-Path $packageDir)){
 	New-Item -ItemType Directory -Path $packageDir | Out-Null
 }
 Write-Host "compiling with ps2exe..."
-ps2exe $src $buildTarget -noConsole -noOutput -iconFile $icon
+Invoke-ps2exe $src $buildTarget -noConsole -noOutput -iconFile $icon
 if(-not (Test-Path $buildTarget)){
     Write-Host "build failed, no target file"
 	exit 1
